@@ -1,0 +1,149 @@
+#!/bin/bash
+#  http://stackoverflow.com/questions/17197970/facebook-permanent-page-access-token
+# 0 - create the facebook App
+
+
+printf "get-permanent-token\n\n"
+printf "Use this script to generate a configuration file for publishing to pages with permanent token\n"
+printf "Theses steps has been found on http://stackoverflow.com/questions/17197970/facebook-permanent-page-access-token\n"
+printf "Please type your application id\n"
+read app_id
+printf "Please type your application secret \n"
+read app_secret
+
+echo "* Go to the Graph API Explorer (https://developers.facebook.com/tools/explorer/$app_id)                                  \n"
+
+#
+# 1. Get User Short-Lived Access Token
+printf "* Go to the Graph API Explorer (https://developers.facebook.com/tools/explorer)                                        \n"
+printf "* Select the application you want to get the access token for (at the same level as "Graph API Explorer", on the right)\n"
+#printf '* (optional) click on "Uninstall the app" to reset all previous perms.                                                 \n'
+printf "* Click on «Get Token»                                                                                                 \n"
+printf "* Click on «Get User Access Token»                                                                                     \n"
+printf "* Check the permissions to «publish pages» and «manage pages»                                                          \n"
+printf "* Eventually click any «OK» popup to confirm you want to give theses rights                                            \n"
+#printf '* Click "OK" Again on the 2nd page of the popup  (if any)                                                              \n'
+printf "        Now you have a short lived access token.\n\tPlease copy and paste it here:"
+read short_lived_token
+
+# 2. Generate Long-Lived Access Token
+    client_id=$app_id # app_id
+    client_secret=$app_secret # app_secret
+    fb_exchange_token=$short_lived_token
+
+
+    request="grant_type=fb_exchange_token&client_id=$app_id&client_secret=$app_secret&fb_exchange_token=$short_lived_token"
+    url="https://graph.facebook.com/v2.2/oauth/access_token?$request"
+
+    printf "\n\t\t client_id=$client_id\n\t\tclient_secret=***\n\t\t fb_exchange_token=$fb_exchange_token\n"
+    printf "making request on $url\n… …"
+
+    response=$(curl -s $url)
+    if [[ -z "$response" ]]; then
+        echo "Error: empty answer for $url";
+        exit;
+    fi
+
+    long_lived_token=$(echo $response|awk -F'&' '{print $1}'|awk -F= '{print $2}')
+
+    printf "\rRequest for long_lived_token has been made.\nResult: $long_lived_token\n";
+
+    url=https://graph.facebook.com/v2.2/me?access_token=$long_lived_token
+    user_datas=$(curl -s $url)
+    if [[ -z "$user_datas" ]]; then
+        echo "Error: empty answer for $url";
+        exit;
+    fi
+
+    # account id is the facebook user id. required for the script, but not for the final configuration
+    account_id=$(echo $user_datas|json_pp |grep '"[0-9]\+"'|sed 's#.*"\([0-9]\+\)".*$#\1#')
+    if [[ -z "$account_id" ]]; then
+        echo "Error: invalid answer for $url"
+        echo $user_datas
+        exit;
+    fi
+
+    #printf "getting user_datas from  https://graph.facebook.com/v2.2/me?access_token=$long_lived_token \n"
+    #printf "show the raw output (Y/n)? \n"
+    #read show_raw
+    #if [[ "$show_raw" == 'y' ]] || [[ "$show_raw" == 'Y' ]] ; then
+    #    echo "$user_datas";
+    #fi
+
+    echo "account_id:$account_id\n";
+
+    # get permanent access
+    url=https://graph.facebook.com/v2.2/$account_id/accounts?access_token=$long_lived_token
+    permanent_token=$(curl -s $url)
+
+    tmpfile=$(mktemp);
+    echo $permanent_token|json_pp > $tmpfile
+
+    printf "Press «q» to exit the next screen after checking the datas"
+    read zzz
+    show_again=yes
+
+    while [ "$show_again" = "yes" ]
+    do
+        cat $tmpfile|more
+        printf "Paste the page_id or press [enter] to ignore:"
+        read entry
+        if [[ ! -z "$entry" ]]; then
+            page_id=$entry
+        fi
+        printf "Paste the permanent_token or press [enter] to ignore:"
+        read entry
+        if [[ ! -z "$entry" ]]; then
+            permanent_token=$entry
+        fi
+
+        printf "Getting values is done "
+        printf "(no will show again the data) ?\n"
+        read show_again
+        if [[ "$show_again" != 'y' ]] && [[ "$show_again" != 'Y' ]] ; then
+            show_again=yes
+        else
+            show_again=no
+        fi
+    done
+    rm $tmpfile
+
+    config="<?php defined('SYSPATH') OR die('No direct script access.');
+return [
+    'default' => [
+        'app_id'     => '$app_id',
+        'app_secret' => '$app_secret',
+        'page_id'    => '$page_id',
+        'page_token' => '$permanent_token',
+    ],
+];
+"
+
+
+confpath=$(dirname "$0")/../../../application/config
+confpath=$(readlink -f $confpath)
+if [[ ! -z "$confpath" ]]; then
+    printf "confpath seems found : $confpath\n"
+else
+    printf "confpath NOT found\n"
+    printf "Please copy manually the configuration :"
+    echo $config;
+fi
+
+printf "In which environment write the config (10,20,30,40, emtpy for default config dir)?"
+read kohana_env
+
+if [[ ! -z "$kohana_env" ]]; then
+    config_file=$confpath/$kohana_env/facebook.php
+else
+    config_file=$confpath/facebook.php
+fi
+
+echo "$config"
+printf "\n"
+printf "Write the config to $config_file ?"
+read confirm_write
+if [[ "$confirm_write" == 'y' ]] || [[ "$confirm_write" == 'Y' ]] ; then
+    echo "$config" > $config_file
+fi
+
