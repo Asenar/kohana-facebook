@@ -72,10 +72,10 @@ class Kohana_Facebook{
             return self::$_instance->facebook;
 
         return self::$_instance;
-
     }
 
     public function getUser() {
+        // TODO: do not impose session thing
         if (!($accessToken = $_SESSION['facebook_access_token'])) {
             $helper =  $this->get_helper();
             try {
