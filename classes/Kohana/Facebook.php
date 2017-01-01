@@ -30,17 +30,19 @@ class Kohana_Facebook{
         }
     }
 
-    public function getLoginUrl($callback_link) {
+    public function getLoginUrl($callback_link, $scope = []) {
         $helper = $this->get_helper();
 
-        $scope = [
-            'email',
-            'user_likes',
-            'user_birthday',
-            'user_hometown',
-            //'friends_likes',
-            //'scope' => 'email,user_likes,user_birthday,user_hometown',
-        ];
+        if (!$scope) {
+            $scope = [
+                'email',
+                'user_likes',
+                'user_birthday',
+                'user_hometown',
+                //'friends_likes',
+                //'scope' => 'email,user_likes,user_birthday,user_hometown',
+            ];
+        }
 
         $login_url =  $helper->getLoginUrl($callback_link, $scope);
 
