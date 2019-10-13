@@ -1,6 +1,7 @@
 <?php
 
-$path = __DIR__ . '/vendor/facebook-php-sdk';
+// $path = __DIR__ . '/vendor/facebook-php-sdk';
+$path = __DIR__ . '/vendor/facebook/php-sdk-v4';
 
 Route::set('FB-auth', 'facebook/auth')
 ->defaults(array(

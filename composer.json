@@ -1,0 +1,13 @@
+{
+    "name": "asenar/kohana-facebook",
+    "type": "library",
+    "require": {
+        "facebook/php-sdk-v4": "^5.7"
+    },
+    "authors": [
+        {
+            "name": "Michaël Marinetti",
+            "email": "github@marinetti.fr"
+        }
+    ]
+}
